@@ -9,9 +9,6 @@ frontend/.next/
 frontend/out/
 
 # Environment variables
-.env*
-backend/.env*
-frontend/.env*
 
 # Medusa specific
 backend/.medusa/
