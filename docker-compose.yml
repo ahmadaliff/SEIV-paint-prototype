@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: medusa-db
+    restart: always
+    environment:
+      POSTGRES_USER: medusa_user
+      POSTGRES_PASSWORD: medusa_pass
+      POSTGRES_DB: medusa_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - medusa-db-data:/var/lib/postgresql/data
+
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: medusa-backend
+  #   restart: always
+  #   env_file:
+  #     - ./backend/.env
+  #   depends_on:
+  #     - db
+  #   ports:
+  #     - "9000:9000"
+  #   command: >
+  #     sh -c "medusa migrations run && medusa develop"
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: medusa-frontend
+  #   restart: always
+  #   env_file:
+  #     - ./frontend/.env.local
+  #   depends_on:
+  #     - backend
+  #   ports:
+  #     - "3000:3000"
+  #   command: >
+  #     sh -c "npm install && npm run dev"
+
+volumes:
+  medusa-db-data:
