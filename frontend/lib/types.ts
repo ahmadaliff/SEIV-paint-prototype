@@ -43,10 +43,12 @@ export interface OrderItem {
   price: number;
   quantity: number;
   image: string;
+  discountInfo?: string;
 }
 
 export interface Order {
   id: string;
+  realId: string;
   customer: string;
   status: 'Pending' | 'Processing' | 'Paid' | 'Shipped' | 'Completed' | 'canceled' | 'completed' | 'pending' | 'requires_action' | 'archived';
   statusColor: string;

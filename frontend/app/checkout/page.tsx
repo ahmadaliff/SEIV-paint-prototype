@@ -63,14 +63,14 @@ export default function CheckoutPage() {
       // Update Address & Email in Medusa Cart
       await updateCartDetails({
         email: user?.email || "guest@seiv.com",
-          shipping_address: {
-            first_name: user?.name?.split(' ')[0] || "Customer",
-            last_name: user?.name?.split(' ')[1] || "SEIV",
-            address_1: "Jl. Sudirman No. 45",
-            city: district.name,
-            country_code: "id",
-            postal_code: "12345"
-          }
+        shipping_address: {
+          first_name: user?.name?.split(' ')[0] || "Customer",
+          last_name: user?.name?.split(' ')[1] || "SEIV",
+          address_1: "Jl. Sudirman No. 45",
+          city: district.name,
+          country_code: "id",
+          postal_code: "12345"
+        }
       });
       setStep(2);
     } catch (err) {
@@ -115,12 +115,12 @@ export default function CheckoutPage() {
           <CheckCircle className="h-12 w-12 text-emerald-500" />
         </div>
         <h1 className="text-3xl font-black text-slate-900 mb-2 font-serif">Pesanan Berhasil!</h1>
-        <p className="text-slate-500 mb-8 max-w-md">Terima kasih sudah berbelanja di SEIV Paint. Pesanan Anda <strong>#{orderSuccess.display_id}</strong> sedang kami proses.</p>
+        <p className="text-slate-500 mb-8 max-w-md">Terima kasih sudah berbelanja di SEIV Paint. Pesanan Anda <strong>#{orderSuccess.id}</strong> sedang kami proses.</p>
 
         <div className="bg-slate-50 p-6 rounded-2xl w-full max-w-sm border border-slate-100 mb-8">
           <div className="flex justify-between text-sm mb-2">
             <span className="text-slate-400">Total Pembayaran</span>
-            <span className="font-bold text-slate-900">{formatRupiah(orderSuccess.total)}</span>
+            <span className="font-bold text-slate-900">{formatRupiah(orderSuccess.summary.current_order_total)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-slate-400">Metode</span>
@@ -262,8 +262,12 @@ export default function CheckoutPage() {
                     <div className="bg-slate-50 rounded-2xl p-4 divide-y divide-slate-200 border border-slate-100">
                       {fullCart?.items.map((item: any) => (
                         <div key={item.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
-                          <div className="h-14 w-14 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden relative text-slate-300">
-                            <Package className="h-6 w-6" />
+                          <div className="h-14 w-14 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden relative">
+                            {item.thumbnail ? (
+                              <Image src={item.thumbnail} alt="" fill className="object-cover" unoptimized />
+                            ) : (
+                              <Package className="h-6 w-6 text-slate-300" />
+                            )}
                           </div>
                           <div className="flex-1">
                             <h5 className="text-xs font-bold text-slate-800 uppercase tracking-tight line-clamp-1">{item.title}</h5>

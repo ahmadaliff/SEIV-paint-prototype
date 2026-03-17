@@ -5,8 +5,11 @@ import { useProductStore } from './useProductStore';
 
 export interface CartItem {
   id: string;
-  productId: string; // stores variant_id
+  variantId: string;
+  title: string;
+  thumbnail: string | null;
   quantity: number;
+  unitPrice: number;
 }
 
 interface CartState {
@@ -31,8 +34,11 @@ function mapItems(items: any[]): CartItem[] {
   if (!items) return [];
   return items.map((item) => ({
     id: item.id,
-    productId: item.variant_id,
+    variantId: item.variant_id,
+    title: item.title,
+    thumbnail: item.thumbnail,
     quantity: item.quantity,
+    unitPrice: item.unit_price,
   }));
 }
 
@@ -48,27 +54,62 @@ export const useCartStore = create<CartState>()(
       clearCart: () => set({ cart: [], cartId: null, fullCart: null }),
 
       addToCart: async (variantId, qty = 1) => {
+        const { user } = (await import('./useAuthStore')).useAuthStore.getState();
+        
+        if (!user) {
+          alert('Silakan login terlebih dahulu untuk menambah barang ke keranjang.');
+          return;
+        }
+
         if (get().isAddingToCart) return;
         set({ isAddingToCart: true });
         try {
           let currentCartId = get().cartId;
+          
+          // Helper to create a new cart
+          const createNewCart = async () => {
+             const regionId = useProductStore.getState().selectedRegionId;
+             const { data } = await medusaApi.post('/store/carts', {
+               region_id: regionId
+             });
+             set({ cartId: data.cart.id });
+             return data.cart.id;
+          };
+
           if (!currentCartId) {
-            const { data } = await medusaApi.post('/store/carts');
-            currentCartId = data.cart.id;
-            set({ cartId: currentCartId });
+            currentCartId = await createNewCart();
           }
 
-          const { data } = await medusaApi.post(`/store/carts/${currentCartId}/line-items`, {
-            variant_id: variantId,
-            quantity: qty,
-          });
+          try {
+            const { data } = await medusaApi.post(`/store/carts/${currentCartId}/line-items`, {
+              variant_id: variantId,
+              quantity: qty,
+            });
 
-          set({ 
-              cart: mapItems(data.cart.items),
-              fullCart: data.cart
-          });
+            set({ 
+                cart: mapItems(data.cart.items),
+                fullCart: data.cart
+            });
+          } catch (error: any) {
+             // If cart not found (expired), clear ID and try one more time
+             if (error?.response?.status === 404) {
+                console.warn("[Cart] Cart expired or not found. Creating new cart...");
+                const newId = await createNewCart();
+                const { data } = await medusaApi.post(`/store/carts/${newId}/line-items`, {
+                  variant_id: variantId,
+                  quantity: qty,
+                });
+                set({ 
+                    cart: mapItems(data.cart.items),
+                    fullCart: data.cart
+                });
+             } else {
+                throw error;
+             }
+          }
         } catch (error: any) {
           const message = error.response?.data?.message || 'Stok tidak mencukupi atau terjadi kesalahan.';
+          console.error("[Cart] Add to cart error:", error);
           alert(message);
           throw error;
         } finally {
@@ -157,13 +198,12 @@ export const useCartStore = create<CartState>()(
           const cartId = get().cartId;
           if (!cartId) return;
           try {
-              // 1. Create Payment Sessions
-              await medusaApi.post(`/store/carts/${cartId}/payment-sessions`);
+              // Use custom direct checkout to bypass payment requirement for prototype
+              const { data } = await medusaApi.post(`/store/checkout-direct`, {
+                  cart_id: cartId
+              });
               
-              // 2. Complete Cart
-              const { data } = await medusaApi.post(`/store/carts/${cartId}/complete`);
-              
-              if (data.type === 'order') {
+              if (data.type === 'order' || data.success) {
                   get().clearCart();
                   return data.data; // The order object
               }

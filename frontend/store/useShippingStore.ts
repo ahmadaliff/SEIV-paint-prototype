@@ -64,9 +64,9 @@ export const useShippingStore = create<ShippingState>()((set, get) => ({
     try {
       // Get cartId from useCartStore for storefront context
       const cartId = (await import('./useCartStore')).useCartStore.getState().cartId;
-      
+
       let shipping_options = [];
-      
+
       try {
         if (cartId) {
           const { data } = await medusaApi.get(`/store/shipping-options?cart_id=${cartId}`);
@@ -96,21 +96,6 @@ export const useShippingStore = create<ShippingState>()((set, get) => ({
           if (so.name.includes('Zona 2')) { zones[1].price = amount; zones[1].medusaId = so.id; }
           if (so.name.includes('Zona 3')) { zones[2].price = amount; zones[2].medusaId = so.id; }
         });
-      }
-
-      // 2. Fetch Store Metadata for Config (Handle 401 gracefully)
-      try {
-        const { data: storeData } = await medusaApi.get('/admin/store');
-        const metadata = storeData.store?.metadata || {};
-
-        if (metadata.shipping_config) {
-          set({ config: metadata.shipping_config });
-        }
-        if (metadata.branch_cutoffs) {
-          set({ branchCutoffs: metadata.branch_cutoffs });
-        }
-      } catch (authErr) {
-        // Silently skip admin-only metadata if unauthorized
       }
 
       set({ shippingZones: zones });
@@ -143,7 +128,7 @@ export const useShippingStore = create<ShippingState>()((set, get) => ({
   saveAllShippingConfig: async () => {
     try {
       const { config, branchCutoffs, shippingZones } = get();
-      
+
       // Save Metadata to Store
       await medusaApi.post('/admin/store', {
         metadata: {
@@ -158,8 +143,8 @@ export const useShippingStore = create<ShippingState>()((set, get) => ({
         if (zone.medusaId) {
           await medusaApi.post(`/admin/shipping-options/${zone.medusaId}`, {
             prices: [{
-                currency_code: 'idr',
-                amount: zone.price
+              currency_code: 'idr',
+              amount: zone.price
             }]
           });
         }

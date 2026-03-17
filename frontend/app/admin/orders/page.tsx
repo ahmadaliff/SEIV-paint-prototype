@@ -4,21 +4,22 @@ import { useState, useEffect } from "react";
 import { Order } from "@/lib/types";
 import { formatRupiah } from "@/lib/utils";
 import { useOrderStore } from "@/store";
-import { 
-  ChevronDown, 
-  Package, 
-  Truck, 
-  Mail, 
+import {
+  ChevronDown,
+  Package,
+  Truck,
+  Mail,
   MessageCircle,
   Clock,
 } from "lucide-react";
 import Image from "next/image";
 
 export default function OrderManagementPage() {
-  const { orders, isLoadingOrders, fetchOrders } = useOrderStore();
+  const { orders, isLoadingOrders, fetchOrders, updateOrderStatus } = useOrderStore();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("Semua");
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -29,19 +30,20 @@ export default function OrderManagementPage() {
 
   const tabs = ["Semua", "Pending", "Processing", "Paid", "Shipped", "Completed"];
 
-  const filteredOrders = activeTab === "Semua" 
-    ? orders 
-    : orders.filter(o => o.status.toLowerCase() === activeTab.toLowerCase());
+  const filteredOrders = activeTab === "Semua"
+    ? orders
+    : orders.filter(o => o.status === activeTab);
 
   const toggleOrder = (id: string) => {
-    setExpandedOrders(prev => 
+    setExpandedOrders(prev =>
       prev.includes(id) ? prev.filter(oid => oid !== id) : [...prev, id]
     );
   };
 
-  const updateStatus = (id: string, newStatus: Order['status']) => {
-    console.log(`Update status for ${id} to ${newStatus}`);
-    // In a real app, call medusa.admin.orders.update
+  const handleUpdateStatus = async (realId: string, newStatus: Order['status']) => {
+    setUpdatingId(realId);
+    await updateOrderStatus(realId, newStatus);
+    setUpdatingId(null);
   };
 
   return (
@@ -54,14 +56,14 @@ export default function OrderManagementPage() {
       {/* Tabs */}
       <div className="flex items-center gap-2 mb-8 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm overflow-x-auto no-scrollbar">
         {tabs.map(tab => {
-          const count = tab === "Semua" ? orders.length : orders.filter(o => o.status.toLowerCase() === tab.toLowerCase()).length;
+          const count = tab === "Semua" ? orders.length : orders.filter(o => o.status === tab).length;
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2
-                ${activeTab === tab 
-                  ? 'bg-[#1a2b43] text-white shadow-lg' 
+                ${activeTab === tab
+                  ? 'bg-[#1a2b43] text-white shadow-lg'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
             >
               {tab}
@@ -80,13 +82,13 @@ export default function OrderManagementPage() {
         {filteredOrders.map(order => {
           const isExpanded = expandedOrders.includes(order.id);
           return (
-            <div 
-              key={order.id} 
+            <div
+              key={order.id}
               className={`bg-white rounded-3xl border border-slate-200 transition-all shadow-sm hover:shadow-md
                 ${isExpanded ? 'ring-2 ring-blue-500 ring-offset-0 border-blue-100 shadow-xl' : ''}`}
             >
               {/* Summary Row */}
-              <div 
+              <div
                 onClick={() => toggleOrder(order.id)}
                 className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
               >
@@ -101,11 +103,8 @@ export default function OrderManagementPage() {
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${order.statusColor}`}>
                       {order.status}
                     </span>
-                    {order.status !== 'Pending' && (
-                       <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-widest">Paid</span>
-                    )}
                     {order.role === 'DISTRIBUTOR_SILVER' && (
-                       <span className="px-3 py-1 bg-purple-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Dist. SILVER</span>
+                      <span className="px-3 py-1 bg-purple-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">Dist. SILVER</span>
                     )}
                   </div>
                 </div>
@@ -137,7 +136,9 @@ export default function OrderManagementPage() {
                           </div>
                           <div>
                             <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.name}</h4>
-                            <p className="text-[10px] text-emerald-600 font-bold mt-1">Diskon Distributor Silver 15% applied</p>
+                            {item.discountInfo && (
+                              <p className="text-[10px] text-emerald-600 font-bold mt-1">{item.discountInfo}</p>
+                            )}
                           </div>
                         </div>
                         <div className="text-sm font-black text-slate-700">{formatRupiah(item.price * item.quantity)}</div>
@@ -179,6 +180,20 @@ export default function OrderManagementPage() {
                         <Clock className="h-3 w-3" /> Ringkasan Biaya
                       </h5>
                       <div className="space-y-3 text-xs relative z-10">
+                        {order.billing && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500 font-medium tracking-tight">Subtotal:</span>
+                              <span className="text-slate-900 font-bold">{formatRupiah(order.billing.subtotal)}</span>
+                            </div>
+                            {order.billing.discount > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-slate-500 font-medium tracking-tight">Diskon Distributor ({order.billing.discountPercent}%):</span>
+                                <span className="text-emerald-600 font-bold">-{formatRupiah(order.billing.discount)}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
                         <div className="flex justify-between pt-3 border-t border-slate-100 items-end">
                           <span className="text-[10px] font-black text-[#1a2b43] uppercase tracking-widest">Total:</span>
                           <span className="text-xl font-black text-blue-600 leading-none">{formatRupiah(order.total)}</span>
@@ -190,10 +205,11 @@ export default function OrderManagementPage() {
                   {/* Actions */}
                   <div className="flex flex-wrap items-center gap-4 pt-6">
                     <div className="flex items-center gap-3">
-                      <select 
+                      <select
                         value={order.status}
-                        onChange={(e) => updateStatus(order.id, e.target.value as Order['status'])}
-                        className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-black text-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-w-[160px]"
+                        onChange={(e) => handleUpdateStatus(order.realId, e.target.value as Order['status'])}
+                        disabled={updatingId === order.realId}
+                        className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-black text-slate-800 shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-w-[160px] disabled:opacity-50"
                       >
                         {tabs.filter(t => t !== 'Semua').map(t => (
                           <option key={t} value={t}>{t}</option>
@@ -204,7 +220,7 @@ export default function OrderManagementPage() {
                     <button className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-md shadow-[#25D366]/20">
                       <MessageCircle className="h-4 w-4" /> WhatsApp
                     </button>
-                    
+
                     <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-3 rounded-xl text-xs font-bold transition-all border border-slate-200">
                       <Mail className="h-4 w-4" /> Email
                     </button>
@@ -216,10 +232,10 @@ export default function OrderManagementPage() {
         })}
 
         {filteredOrders.length === 0 && (
-           <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
-              <Package className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-              <p className="text-slate-400 font-bold">Tidak ada pesanan dengan status &quot;{activeTab}&quot;</p>
-           </div>
+          <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+            <Package className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-400 font-bold">Tidak ada pesanan dengan status &quot;{activeTab}&quot;</p>
+          </div>
         )}
       </div>
     </div>

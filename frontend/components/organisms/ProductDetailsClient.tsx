@@ -104,7 +104,7 @@ export function ProductDetailsClient({ product: initialProduct }: { product: Pro
     };
 
     fetchAuthenticatedProduct();
-  }, [initialProduct.id, initialProduct.options, fetchRegions, selectedRegionId]);
+  }, [initialProduct.id, initialProduct.options, fetchRegions, selectedRegionId, role]);
 
   // Find current variant based on selected options (using the state 'product')
   const currentVariant = product.variants.find((v) => {

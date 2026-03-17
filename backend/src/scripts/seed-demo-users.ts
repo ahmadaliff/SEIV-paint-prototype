@@ -2,7 +2,6 @@ import { ExecArgs } from "@medusajs/framework/types"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import {
   createCustomerAccountWorkflow,
-  createUsersWorkflow,
 } from "@medusajs/medusa/core-flows"
 
 export default async function seedDemoUsers({ container }: ExecArgs) {
@@ -15,45 +14,6 @@ export default async function seedDemoUsers({ container }: ExecArgs) {
   logger.info("Seeding demo users (Individual, Distributor, Admin)...")
 
   const password = "Supersecret123!"
-
-  // =====================================================
-  // ADMIN USER
-  // =====================================================
-
-  const [existingAdmin] = await userModuleService.listUsers({
-    email: "admin@seiv.com",
-  })
-
-  if (!existingAdmin) {
-    logger.info("Creating admin user...")
-
-    await createUsersWorkflow(container).run({
-      input: {
-        users: [
-          {
-            email: "admin@seiv.com",
-            first_name: "Admin",
-            last_name: "SEIV",
-          },
-        ],
-      },
-    })
-
-    logger.info("Registering admin auth identity...")
-
-    await authModuleService.register("emailpass", {
-      body: {
-        email: "admin@seiv.com",
-        password,
-      },
-      url: "",
-      headers: {},
-      query: {},
-      protocol: "http",
-    } as any)
-  } else {
-    logger.info("Admin already exists.")
-  }
 
   // =====================================================
   // FETCH CUSTOMER GROUPS

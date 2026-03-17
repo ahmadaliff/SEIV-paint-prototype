@@ -173,31 +173,28 @@ export function Header() {
                   </div>
 
                   <div className="max-h-60 overflow-y-auto px-4 py-2">
-                    {cart.map((item) => {
-                      const product = products.find(p => p.variantId === item.productId);
-                      if (!product) return null;
-                      return (
-                        <div key={item.id} className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-none">
-                          <div className="h-12 w-12 rounded bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 relative">
-                            <Image src={product.image} alt="" fill className="object-cover opacity-60" unoptimized />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-[11px] font-bold text-slate-800 truncate uppercase">{product.name}</h4>
-                            <div className="text-[10px] text-slate-500 mt-0.5">{item.quantity} x {formatRupiah(product.price)}</div>
-                          </div>
+                    {cart.map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-none">
+                        <div className="h-12 w-12 rounded bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden shrink-0 relative">
+                          {item.thumbnail ? (
+                            <Image src={item.thumbnail} alt="" fill className="object-cover" unoptimized />
+                          ) : (
+                            <ShoppingCart className="h-6 w-6 text-slate-300" />
+                          )}
                         </div>
-                      );
-                    })}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[11px] font-bold text-slate-800 truncate uppercase">{item.title}</h4>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{item.quantity} x {formatRupiah(item.unitPrice)}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Subtotal</span>
                       <span className="text-sm font-black text-[#1a2b43]">
-                        {formatRupiah(cart.reduce((acc, item) => {
-                          const product = products.find(p => p.variantId === item.productId);
-                          return acc + (product ? product.price * item.quantity : 0);
-                        }, 0))}
+                        {formatRupiah(cart.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0))}
                       </span>
                     </div>
                     <Link href="/checkout" className={`block w-full text-white text-center py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm ${pathname === '/checkout' ? 'bg-blue-600' : 'bg-[#1a2b43] hover:bg-slate-800'}`}>

@@ -5,15 +5,17 @@ import {
   createProductsWorkflow,
   createSalesChannelsWorkflow,
   createProductCategoriesWorkflow,
-  createPriceListsWorkflow,
   createCustomerGroupsWorkflow,
   createShippingProfilesWorkflow,
   updateStockLocationsWorkflow,
   createStockLocationsWorkflow,
   createRegionsWorkflow,
+  createShippingOptionsWorkflow,
+  createServiceZonesWorkflow,
 } from "@medusajs/medusa/core-flows"
 
 export default async function seedDemoData({ container }: ExecArgs) {
+  console.log("🚀 STARTING SEIV SEED SCRIPT...");
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER)
   const query = container.resolve(ContainerRegistrationKeys.QUERY)
   const remoteLink = container.resolve(ContainerRegistrationKeys.REMOTE_LINK)
@@ -365,9 +367,23 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const missingGroups = groupNames.filter(name => !existingGroups.find(g => g.name === name))
 
   let groups = [...existingGroups]
+  const tiers = [
+    { name: "Bronze", discount: 0.10 },
+    { name: "Silver", discount: 0.15 },
+    { name: "Gold", discount: 0.20 }
+  ]
+
   if (missingGroups.length > 0) {
     const { result } = await createCustomerGroupsWorkflow(container).run({
-      input: { customersData: missingGroups.map(name => ({ name })) }
+      input: { 
+        customersData: missingGroups.map(name => {
+          const tier = tiers.find(t => name.includes(t.name));
+          return { 
+            name,
+            metadata: tier ? { discount_rate: tier.discount } : {} 
+          };
+        }) 
+      }
     })
     groups = [...groups, ...result]
   }
@@ -391,12 +407,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
     region = newRegions[0]
   }
 
-  const tiers = [
-    { name: "Bronze", discount: 0.10 },
-    { name: "Silver", discount: 0.15 },
-    { name: "Gold", discount: 0.20 }
-  ]
-
   const pricingModuleService = container.resolve(Modules.PRICING)
   const existingPriceLists = await pricingModuleService.listPriceLists({ id: [] })
 
@@ -408,20 +418,18 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const priceListsData = tiers.map(t => {
     const prices: any[] = []// Hanya ambil variant yang punya price_set dan harga
     const validVariants = allVariants.filter(v => v.id && v.price_set?.prices?.length > 0)
+    const group = getGroup(`Distributor ${t.name}`)
+    if (!group) return null
+
     for (const v of validVariants) {
       const basePriceObj = v.price_set.prices.find((p: any) => p.currency_code === 'idr')
       if (!basePriceObj) continue
 
-      const group = getGroup(`Distributor ${t.name}`)
-      if (!group) return null
 
       prices.push({
         amount: Math.round(basePriceObj.amount * (1 - t.discount)),
         currency_code: "idr",
-        price_set_id: v.price_set!.id,
-        rules: {
-          "customer.groups.id": group.id,
-        }
+        price_set_id: v.price_set!.id
       })
     }
 
@@ -434,6 +442,9 @@ export default async function seedDemoData({ container }: ExecArgs) {
       type: "sale",
       status: "active",
       prices,
+      rules: {
+        "customer.groups.id": group.id,
+      }
     }
   }).filter(Boolean) as any[]
   if (priceListsData.length > 0) {
@@ -444,5 +455,102 @@ export default async function seedDemoData({ container }: ExecArgs) {
       logger.error(`❌ Pricing Service Error: ${err.message}`)
     }
   }
+
+  // 9. SHIPPING OPTIONS (Zona 1, 2, 3)
+  logger.info("Setting up Shipping Options (Zona 1, 2, 3)...")
+  const fulfillmentModuleService = container.resolve(Modules.FULFILLMENT)
+
+  // 1. Create/Find Fulfillment Provider
+  const providers = await fulfillmentModuleService.listFulfillmentProviders()
+  const provider = providers.find(p => p.id === "manual") || providers[0]
+
+  if (!provider) {
+    logger.error("No fulfillment provider found. Make sure @medusajs/fulfillment-manual is installed.")
+  } else {
+    // 2. Create Fulfillment Set
+    const fulfillmentSetName = "SEIV Delivery Service"
+    let [fulfillmentSet]: any[] = await fulfillmentModuleService.listFulfillmentSets({ name: fulfillmentSetName })
+
+    if (!fulfillmentSet) {
+      fulfillmentSet = await (fulfillmentModuleService as any).createFulfillmentSets({
+        name: fulfillmentSetName,
+        type: "shipping",
+      })
+    }
+
+    // Link Fulfillment Set to all Stock Locations (CRITICAL for Medusa v2)
+    const fsLinks = latestLocations.map(loc => ({
+      [Modules.STOCK_LOCATION]: { stock_location_id: loc.id },
+      [Modules.FULFILLMENT]: { fulfillment_set_id: fulfillmentSet.id }
+    }))
+
+    try {
+      await remoteLink.create(fsLinks)
+      logger.info(`✅ Linked Fulfillment Set to ${latestLocations.length} locations.`)
+    } catch (e: any) { }
+
+    // 3. Create Service Zone
+    const serviceZoneName = "INDONESIA-ZONE"
+    let [serviceZone]: any[] = await fulfillmentModuleService.listServiceZones({ name: serviceZoneName })
+
+    if (!serviceZone) {
+      serviceZone = await (fulfillmentModuleService as any).createServiceZones({
+        fulfillment_set_id: fulfillmentSet.id,
+        name: serviceZoneName,
+        geo_zones: [
+          {
+            country_code: "id",
+            type: "country"
+          }
+        ]
+      })
+    }
+
+    // 4. Create Shipping Options
+    const zones = [
+      { name: "Pengiriman Zona 1", price: 15000 },
+      { name: "Pengiriman Zona 2", price: 25000 },
+      { name: "Pengiriman Zona 3", price: 40000 }
+    ]
+
+    for (const z of zones) {
+      let [option]: any[] = await fulfillmentModuleService.listShippingOptions({ name: z.name })
+
+      if (!option) {
+        // Create Option
+        option = await (fulfillmentModuleService as any).createShippingOptions({
+          name: z.name,
+          price_type: "flat",
+          provider_id: provider.id,
+          service_zone_id: serviceZone.id,
+          shipping_profile_id: shippingProfile!.id,
+          type: {
+            label: "SEIV Delivery",
+            description: "SEIV Paint Internal Delivery",
+            code: "seiv-delivery"
+          }
+        })
+
+        // Create Price Set
+        const priceSet = await pricingModuleService.createPriceSets({
+          prices: [
+            {
+              amount: z.price,
+              currency_code: "idr"
+            }
+          ]
+        })
+
+        // Link Option to Price Set (This is what the workflow does internally)
+        await remoteLink.create({
+          [Modules.FULFILLMENT]: { shipping_option_id: option.id },
+          [Modules.PRICING]: { price_set_id: priceSet.id }
+        })
+
+        logger.info(`✅ Created Shipping Option ${z.name} with manual Price Set.`)
+      }
+    }
+  }
+
   logger.info("SEIV Paint seed completed successfully")
 }

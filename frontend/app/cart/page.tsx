@@ -10,14 +10,14 @@ import Image from "next/image";
 
 export default function CartPage() {
   const { role } = useAuthStore();
-  const { cart, fetchCart, removeFromCart, updateCartItemQuantity } = useCartStore();
+  const { cart, fullCart, fetchCart, removeFromCart, updateCartItemQuantity } = useCartStore();
   const { products } = useProductStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     fetchCart();
-  }, [fetchCart]);
+  }, [fetchCart, role]); // Trigger re-fetch when role changes
 
   if (!mounted) return null;
 
@@ -36,21 +36,20 @@ export default function CartPage() {
     );
   }
 
-  const cartItems = cart.map((item) => {
-    const p = products.find((p) => p.variantId === item.productId);
-    if (!p) return null;
-    return { ...p, quantity: item.quantity, cartId: item.id };
-  }).filter(Boolean) as any[];
+  const cartItems = cart.map((item) => ({
+    id: item.variantId,
+    name: item.title,
+    image: item.thumbnail || "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?q=80&w=500&auto=format&fit=crop",
+    price: item.unitPrice,
+    quantity: item.quantity,
+    cartId: item.id
+  }));
 
-  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  
-  // Distributor Discount logic
-  let discountPercent = 0;
-  if (role === 'DISTRIBUTOR_SILVER') discountPercent = 0.15;
-  if (role === 'ADMIN') discountPercent = 0.20;
-  
-  const discountAmount = subtotal * discountPercent;
-  const total = subtotal - discountAmount;
+  // AMBIL TOTAL LANGSUNG DARI MEDUSA
+  const subtotal = fullCart?.subtotal || 0;
+  const discountAmount = fullCart?.discount_total || 0;
+  const total = fullCart?.total || 0;
+  const discountPercent = subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -146,7 +145,7 @@ export default function CartPage() {
                     <div className="flex justify-between items-center bg-emerald-50 p-3 rounded-xl border border-emerald-100">
                       <div className="flex flex-col">
                         <span className="text-emerald-700 font-bold text-[10px] uppercase tracking-wider">Diskon Distributor</span>
-                        <span className="text-[9px] text-emerald-600 opacity-75">Hemat {discountPercent * 100}%</span>
+                        <span className="text-[9px] text-emerald-600 opacity-75">Hemat {discountPercent}%</span>
                       </div>
                       <span className="text-emerald-700 font-black">-{formatRupiah(discountAmount)}</span>
                     </div>

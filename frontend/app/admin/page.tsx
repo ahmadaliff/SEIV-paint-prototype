@@ -27,8 +27,8 @@ export default function AdminDashboard() {
   // Real Derivations
   const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalOrders = orders.length;
-  const pendingOrders = orders.filter(o => o.status === 'Pending').length;
-  
+  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+
   // Dynamic Revenue Chart (Last 7 months)
   const getMonthlyRevenue = () => {
     const now = new Date();
@@ -37,14 +37,14 @@ export default function AdminDashboard() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthLabel = d.toLocaleString('id-ID', { month: 'short' });
       const monthYear = d.toLocaleString('id-ID', { month: 'short', year: 'numeric' });
-      
+
       // Filter orders for this month
       const monthAmount = orders.reduce((sum, o) => {
-          const orderDate = new Date(o.date);
-          if (orderDate.getMonth() === d.getMonth() && orderDate.getFullYear() === d.getFullYear()) {
-              return sum + o.total;
-          }
-          return sum;
+        const orderDate = new Date(o.date);
+        if (orderDate.getMonth() === d.getMonth() && orderDate.getFullYear() === d.getFullYear()) {
+          return sum + o.total;
+        }
+        return sum;
       }, 0);
 
       result.push({
@@ -152,18 +152,23 @@ export default function AdminDashboard() {
               const heightPct = (data.amount / maxVal) * 100;
 
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-2 group relative">
+                <div
+                  key={idx}
+                  className="flex-1 flex flex-col items-center justify-end gap-2 group relative h-full"
+                >
                   <div
-                    className={`w-full rounded-t-sm transition-all duration-500 hover:opacity-80
-                      ${data.isCurrent ? 'bg-yellow-500' : 'bg-slate-500'}
-                    `}
+                    className={`w-full rounded-t-md transition-all duration-500 hover:opacity-80 relative ${data.isCurrent ? "bg-yellow-500" : "bg-slate-500"}`}
                     style={{ height: `${Math.max(heightPct, 5)}%` }}
                   >
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none shadow-md">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none shadow-md">
                       {formatRupiah(data.amount)}
                     </div>
                   </div>
-                  <span className={`text-[10px] font-bold ${data.isCurrent ? 'text-yellow-600' : 'text-slate-400'}`}>
+
+                  <span
+                    className={`text-[10px] font-bold ${data.isCurrent ? "text-yellow-600" : "text-slate-400"
+                      }`}
+                  >
                     {data.month}
                   </span>
                 </div>

@@ -96,12 +96,17 @@ export const useAuthStore = create<AuthState>()(
             const cartId = useCartStore.getState().cartId;
             if (cartId) {
               try {
-                await medusa.carts.update(cartId, {
-                  customer_id: customer.id,
+                // In Medusa v2, updating the cart after authentication
+                // triggers the pricing engine to recalculate line items
+                // based on the new customer's group/price lists.
+                await medusaApi.post(`/store/carts/${cartId}`, {
                   email: customer.email,
                 });
+                
+                // Refresh full cart data to get new unit_prices from Medusa
+                await useCartStore.getState().fetchCart();
               } catch (err) {
-                console.warn('[Auth] Could not attach customer to cart:', err);
+                console.warn('[Auth] Could not refresh cart prices:', err);
               }
             }
           }
@@ -117,9 +122,11 @@ export const useAuthStore = create<AuthState>()(
         } catch (err) {
           console.warn('[Auth] Logout request failed:', err);
         } finally {
+          // Clear both auth and cart data on logout
           setAuthToken(null);
           set({ user: null, role: 'INDIVIDUAL', minPurchaseRequired: 0 });
           useCartStore.getState().clearCart();
+          console.log('[Auth] Logged out and cart cleared.');
         }
       },
 
@@ -134,26 +141,26 @@ export const useAuthStore = create<AuthState>()(
 
         const email = credentials[role];
         const demoPassword = 'Supersecret123!';
-        
+
         console.log(`[Demo] Attempting real login for ${role} (${email})...`);
-        
+
         try {
           if (role === 'ADMIN') {
             const { data } = await medusaApi.post('/auth/user/emailpass', {
               email,
               password: demoPassword,
             });
-            
+
             console.log('[Demo Admin] Login response data:', data);
-            
+
             const adminToken = data.token || data.access_token;
             if (adminToken) {
-                console.log('[Demo Admin] Found token:', adminToken.slice(0, 10) + '...');
-                setAuthToken(adminToken);
+              console.log('[Demo Admin] Found token:', adminToken.slice(0, 10) + '...');
+              setAuthToken(adminToken, 'admin');
             } else {
-                console.warn('[Demo Admin] No token found in response!', data);
+              console.warn('[Demo Admin] No token found in response!', data);
             }
-            
+
             set({ user: { id: 'admin_demo', name: 'SEIV Admin', role: 'ADMIN', lat: 0, lng: 0, email }, role: 'ADMIN' });
           } else {
             // Panggil fungsi login asli, jangan cuma setRole
