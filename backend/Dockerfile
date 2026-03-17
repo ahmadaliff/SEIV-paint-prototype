@@ -1,12 +1,14 @@
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package*.json ./
+RUN npm install
 
 COPY . .
 
-EXPOSE 9000
+RUN chmod +x entrypoint.sh
 
-CMD ["medusa", "develop"]
+ENTRYPOINT ["./entrypoint.sh"]
+
+CMD ["npm", "run", "dev"]

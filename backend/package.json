@@ -16,6 +16,7 @@
     "build": "medusa build",
     "seed": "medusa exec ./src/scripts/seed.ts",
     "seed:users": "medusa exec ./src/scripts/seed-demo-users.ts",
+    "seed:orders": "medusa exec ./src/scripts/seed-orders.ts",
     "seed:sync": "medusa exec ./src/scripts/sync-frontend.ts",
     "create:admin": "medusa user --email admin@seiv.com --password Supersecret123!",
     "seed:all": "npm run seed && npm run seed:users && npm run seed:sync && npm run create:admin",
